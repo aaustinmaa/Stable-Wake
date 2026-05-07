@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "StableWake",
+    "slug": "stable-wake",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
