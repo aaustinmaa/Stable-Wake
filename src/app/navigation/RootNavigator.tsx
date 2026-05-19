@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "./routeTypes";
 import { AlarmSettingsScreen } from "../../features/alarm-settings/screens/AlarmSettingsScreen";
+import { ResultScreen } from "../../features/results/screens/ResultScreen";
 import { SleepSessionScreen } from "../../features/sleep-session/screens/SleepSessionScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -18,6 +19,11 @@ export function RootNavigator() {
         name="SleepSession"
         component={SleepSessionScreen}
         options={{ title: "Session" }}
+      />
+      <Stack.Screen
+        name="Result"
+        component={ResultScreen}
+        options={{ title: "Session result" }}
       />
     </Stack.Navigator>
   );

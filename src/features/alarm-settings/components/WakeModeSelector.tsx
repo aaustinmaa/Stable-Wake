@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { WakeMode } from "../../../domain/models/WakeMode";
+import { colors } from "../../../shared/theme";
 
 const MODE_OPTIONS: Array<{ label: string; value: WakeMode }> = [
   { label: "Fast", value: "fast" },
@@ -44,13 +45,15 @@ const styles = StyleSheet.create({
   card: {
     gap: 12,
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#ffffff"
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   title: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#152238"
+    fontWeight: "700",
+    color: colors.text
   },
   optionList: {
     gap: 10
@@ -58,16 +61,19 @@ const styles = StyleSheet.create({
   option: {
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: "#eef3f7"
+    borderRadius: 8,
+    backgroundColor: "#f7fafc",
+    borderWidth: 1,
+    borderColor: colors.border
   },
   optionSelected: {
-    backgroundColor: "#0d3b66"
+    backgroundColor: colors.selected,
+    borderColor: colors.selected
   },
   optionText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#152238"
+    color: colors.text
   },
   optionTextSelected: {
     color: "#ffffff"

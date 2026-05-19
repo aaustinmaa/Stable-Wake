@@ -1,6 +1,5 @@
 export type SleepSample = {
-  simulatedMinute: number;
+  timestampMs: number;
   motionScore: number;
   soundScore: number;
 };
-

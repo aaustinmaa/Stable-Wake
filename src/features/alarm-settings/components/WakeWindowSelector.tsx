@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { colors } from "../../../shared/theme";
 
 type WakeWindowSelectorProps = {
   options: readonly number[];
@@ -37,13 +38,15 @@ const styles = StyleSheet.create({
   card: {
     gap: 12,
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#ffffff"
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   title: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#152238"
+    fontWeight: "700",
+    color: colors.text
   },
   optionList: {
     flexDirection: "row",
@@ -54,20 +57,22 @@ const styles = StyleSheet.create({
     minWidth: 72,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: "#eef3f7",
+    borderRadius: 8,
+    backgroundColor: "#f7fafc",
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center"
   },
   optionSelected: {
-    backgroundColor: "#0d3b66"
+    backgroundColor: colors.selected,
+    borderColor: colors.selected
   },
   optionText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#152238"
+    color: colors.text
   },
   optionTextSelected: {
     color: "#ffffff"
   }
 });
-

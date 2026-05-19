@@ -17,31 +17,33 @@ describe("alarm settings flow", () => {
     expect(screen.getByText("Latest wake-up time")).toBeTruthy();
     expect(screen.getByText("Wake window")).toBeTruthy();
     expect(screen.getByText("Wake mode")).toBeTruthy();
+    expect(screen.getByTestId("hour-wheel")).toBeTruthy();
+    expect(screen.getByTestId("minute-wheel")).toBeTruthy();
 
     fireEvent.press(screen.getByTestId("wake-mode-option-comfort"));
     fireEvent.press(screen.getByTestId("wake-window-option-45"));
-    fireEvent.press(screen.getByTestId("latest-wake-time-increment"));
+    fireEvent.press(screen.getByTestId("hour-wheel-option-08"));
+    fireEvent.press(screen.getByTestId("minute-wheel-option-05"));
     fireEvent.press(screen.getByTestId("start-session-button"));
 
     expect(await screen.findByText("Session Shell")).toBeTruthy();
-    expect(screen.getByTestId("session-latest-wake-time")).toHaveTextContent("Latest wake-up time: 07:15");
+    expect(screen.getByTestId("session-latest-wake-time")).toHaveTextContent("Latest wake-up time: 08:05");
     expect(screen.getByTestId("session-wake-window")).toHaveTextContent("Wake window: 45 min");
     expect(screen.getByTestId("session-wake-mode")).toHaveTextContent("Wake mode: Comfort");
     expect(screen.getByTestId("session-placeholder-message")).toHaveTextContent(
-      "Monitoring and wake engine are not implemented yet. This is simulated monitoring only."
+      "This is simulated monitoring only. Real sleep detection and alarm audio are not implemented yet."
     );
-    expect(screen.getByTestId("session-status-value")).toHaveTextContent("Configured");
-
-    fireEvent.press(screen.getByTestId("start-simulation-button"));
 
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Monitoring");
-    expect(screen.getByTestId("session-simulation-time")).toHaveTextContent("Current simulated time: 06:20");
+    expect(screen.getByTestId("session-simulation-time")).toHaveTextContent("Current simulated time: 07:10");
     expect(screen.getByTestId("session-sample-values")).toHaveTextContent(
-      "Current sample: motion 0.18, sound 0.36"
+      "Current sample: motion 0.18, sound 0.22"
     );
+    expect(screen.getByTestId("engine-current-mode")).toHaveTextContent("Mode: Comfort");
+    expect(screen.getByTestId("engine-trigger-decision")).toHaveTextContent("Engine would trigger: No");
 
     act(() => {
-      jest.advanceTimersByTime(1400);
+      jest.advanceTimersByTime(10000);
     });
 
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Wake window active");
@@ -49,5 +51,21 @@ describe("alarm settings flow", () => {
 
     fireEvent.press(screen.getByTestId("stop-session-button"));
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Completed");
+  });
+
+  it("navigates to the result screen when the simulated engine triggers", async () => {
+    render(<App />);
+
+    fireEvent.press(screen.getByTestId("start-session-button"));
+    expect(await screen.findByTestId("session-status-value")).toHaveTextContent("Monitoring");
+
+    act(() => {
+      jest.advanceTimersByTime(41000);
+    });
+
+    expect(await screen.findByText("Session Result")).toBeTruthy();
+    expect(screen.getByTestId("result-reason-code")).toHaveTextContent(/stable_zone/);
+    expect(screen.getByTestId("result-wake-mode")).toHaveTextContent("Wake mode: Balanced");
+    expect(screen.getByTestId("result-wakeability-timeline")).toBeTruthy();
   });
 });

@@ -1,11 +1,13 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { RootStackParamList } from "../../../app/navigation/routeTypes";
 import type { SessionStatus } from "../../../domain/models/SessionStatus";
 import type { WakeMode } from "../../../domain/models/WakeMode";
 import { useSleepSession } from "../hooks/useSleepSession";
 import { formatClockTime } from "../../../shared/utils/time";
+import { colors, spacing } from "../../../shared/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "SleepSession">;
 
@@ -22,80 +24,156 @@ const STATUS_LABELS: Record<SessionStatus, string> = {
   completed: "Completed"
 };
 
-export function SleepSessionScreen({ route }: Props) {
+export function SleepSessionScreen({ navigation, route }: Props) {
   const { settings } = route.params;
   const {
     status,
     currentSample,
     currentClockTime,
+    elapsedSimulatedMinutes,
+    engineOutput,
     plan,
     isWakeWindowActive,
     startSimulation,
     stopSession
-  } = useSleepSession(settings);
+  } = useSleepSession(settings, {
+    onResult: (result) => navigation.push("Result", { result })
+  });
   const isRunning = status === "monitoring" || status === "wake_window_active";
 
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Session Shell</Text>
-      <Text style={styles.statusLabel}>Session status</Text>
-      <Text testID="session-status-value" style={styles.statusValue}>
-        {STATUS_LABELS[status]}
+    <SafeAreaView style={styles.screen}>
+      <ScrollView alwaysBounceVertical contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Session Shell</Text>
+          <View style={styles.statusPill}>
+            <Text style={styles.statusLabel}>Session status</Text>
+            <Text testID="session-status-value" style={styles.statusValue}>
+              {STATUS_LABELS[status]}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Selected settings</Text>
+          <MetricRow label="Latest wake-up time" testID="session-latest-wake-time" value={formatClockTime(settings.latestWakeTime)} />
+          <MetricRow label="Wake window" testID="session-wake-window" value={`${settings.wakeWindowMinutes} min`} />
+          <MetricRow label="Wake mode" testID="session-wake-mode" value={MODE_LABELS[settings.wakeMode]} />
+        </View>
+
+        <Text testID="session-placeholder-message" style={styles.placeholder}>
+          This is simulated monitoring only. Real sleep detection and alarm audio are not implemented yet.
+        </Text>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Simulation</Text>
+          <MetricRow
+            label="Current simulated time"
+            testID="session-simulation-time"
+            value={currentClockTime ? formatClockTime(currentClockTime) : "Not started"}
+          />
+          <MetricRow
+            label="Elapsed simulated time"
+            testID="session-elapsed-time"
+            value={`${elapsedSimulatedMinutes} min`}
+          />
+          <MetricRow
+            label="Wake window"
+            testID="session-wake-window-active"
+            value={isWakeWindowActive ? "Active" : "Not active"}
+          />
+          <MetricRow
+            label="Current sample"
+            testID="session-sample-values"
+            value={
+              currentSample
+                ? `motion ${currentSample.motionScore.toFixed(2)}, sound ${currentSample.soundScore.toFixed(2)}`
+                : "Waiting for simulation"
+            }
+          />
+          <Text style={styles.mutedText}>
+            Simulation starts at {formatClockTime(plan.startClockTime)}. Wake window starts at{" "}
+            {formatClockTime(plan.wakeWindowStartClockTime)}.
+          </Text>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Wake engine debug</Text>
+          <MetricRow label="Mode" testID="engine-current-mode" value={MODE_LABELS[settings.wakeMode]} />
+          <MetricRow
+            label="Raw wakeability"
+            testID="engine-raw-wakeability"
+            value={engineOutput.score ? engineOutput.score.rawWakeability.toFixed(2) : "Waiting"}
+          />
+          <MetricRow
+            label="Wakeability"
+            testID="engine-wakeability"
+            value={engineOutput.score ? engineOutput.score.smoothedWakeability.toFixed(2) : "Waiting"}
+          />
+          <MetricRow
+            label="Stability"
+            testID="engine-stability"
+            value={engineOutput.score ? engineOutput.score.stabilityScore.toFixed(2) : "Waiting"}
+          />
+          <MetricRow
+            label="Timing pressure"
+            testID="engine-timing-pressure"
+            value={engineOutput.score ? engineOutput.score.timingPressure.toFixed(2) : "Waiting"}
+          />
+          <MetricRow
+            label="Stable wake zone"
+            testID="engine-stable-zone"
+            value={engineOutput.stableWakeZoneActive ? "Active" : "Not active"}
+          />
+          <MetricRow
+            label="Engine would trigger"
+            testID="engine-trigger-decision"
+            value={engineOutput.decision.shouldTrigger ? "Yes" : "No"}
+          />
+          <MetricRow
+            label="Trigger reason"
+            testID="engine-trigger-reason"
+            value={engineOutput.decision.reasonCode ?? "None"}
+          />
+        </View>
+
+        {isRunning ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={stopSession}
+            style={[styles.button, styles.stopButton]}
+            testID="stop-session-button"
+          >
+            <Text style={styles.buttonText}>Stop Session</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={startSimulation}
+            style={styles.button}
+            testID="start-simulation-button"
+          >
+            <Text style={styles.buttonText}>Start Simulation</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+type MetricRowProps = {
+  label: string;
+  testID: string;
+  value: string;
+};
+
+function MetricRow({ label, testID, value }: MetricRowProps) {
+  return (
+    <View style={styles.metricRow}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue} testID={testID}>
+        {label}: {value}
       </Text>
-
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Selected settings</Text>
-        <Text testID="session-latest-wake-time">Latest wake-up time: {formatClockTime(settings.latestWakeTime)}</Text>
-        <Text testID="session-wake-window">Wake window: {settings.wakeWindowMinutes} min</Text>
-        <Text testID="session-wake-mode">Wake mode: {MODE_LABELS[settings.wakeMode]}</Text>
-      </View>
-
-      <Text testID="session-placeholder-message" style={styles.placeholder}>
-        Monitoring and wake engine are not implemented yet. This is simulated monitoring only.
-      </Text>
-
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Simulation</Text>
-        <Text testID="session-simulation-time">
-          Current simulated time: {currentClockTime ? formatClockTime(currentClockTime) : "Not started"}
-        </Text>
-        <Text testID="session-elapsed-time">
-          Elapsed simulated time: {currentSample ? `${currentSample.simulatedMinute} min` : "0 min"}
-        </Text>
-        <Text testID="session-wake-window-active">
-          Wake window: {isWakeWindowActive ? "Active" : "Not active"}
-        </Text>
-        <Text testID="session-sample-values">
-          Current sample:{" "}
-          {currentSample
-            ? `motion ${currentSample.motionScore.toFixed(2)}, sound ${currentSample.soundScore.toFixed(2)}`
-            : "Waiting for simulation"}
-        </Text>
-        <Text style={styles.mutedText}>
-          Simulation starts at {formatClockTime(plan.startClockTime)}. Wake window starts at{" "}
-          {formatClockTime(plan.wakeWindowStartClockTime)}.
-        </Text>
-      </View>
-
-      {isRunning ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={stopSession}
-          style={[styles.button, styles.stopButton]}
-          testID="stop-session-button"
-        >
-          <Text style={styles.buttonText}>Stop Session</Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          onPress={startSimulation}
-          style={styles.button}
-          testID="start-simulation-button"
-        >
-          <Text style={styles.buttonText}>Start Simulation</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -103,54 +181,87 @@ export function SleepSessionScreen({ route }: Props) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    gap: 16,
-    padding: 20,
-    backgroundColor: "#f3f7fb"
+    backgroundColor: colors.background
+  },
+  content: {
+    flexGrow: 1,
+    gap: spacing.gap,
+    padding: spacing.screen,
+    paddingBottom: 32
+  },
+  header: {
+    gap: 12
   },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#152238"
+    color: colors.text
   },
   statusLabel: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#41566f"
+    color: colors.muted
   },
   statusValue: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#0d3b66"
+    color: colors.primary
+  },
+  statusPill: {
+    alignSelf: "flex-start",
+    gap: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   summaryCard: {
     gap: 10,
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#ffffff"
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   summaryTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#152238"
+    color: colors.text
+  },
+  metricRow: {
+    gap: 2,
+    paddingVertical: 4
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.muted
+  },
+  metricValue: {
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.text
   },
   mutedText: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#61758f"
+    color: colors.muted
   },
   placeholder: {
     fontSize: 16,
     lineHeight: 22,
-    color: "#41566f"
+    color: colors.muted
   },
   button: {
     paddingVertical: 16,
     borderRadius: 8,
-    backgroundColor: "#0d3b66",
+    backgroundColor: colors.primary,
     alignItems: "center"
   },
   stopButton: {
-    backgroundColor: "#8f2d2d"
+    backgroundColor: colors.danger
   },
   buttonText: {
     fontSize: 17,
