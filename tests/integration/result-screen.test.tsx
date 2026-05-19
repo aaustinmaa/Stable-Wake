@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, waitFor } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { loadSessionResultSummaries } from "../../src/data/storage/sessionResultStorage";
 import type { RootStackParamList } from "../../src/app/navigation/routeTypes";
 import type { SessionResult } from "../../src/domain/models/SessionResult";
 import { ResultScreen } from "../../src/features/results/screens/ResultScreen";
@@ -48,6 +50,10 @@ const result: SessionResult = {
 };
 
 describe("ResultScreen", () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
   it("renders result summary, explanations, reason code, and timeline", () => {
     render(
       <ResultScreen
@@ -67,5 +73,24 @@ describe("ResultScreen", () => {
     );
     expect(screen.getByTestId("result-wakeability-timeline")).toBeTruthy();
     expect(screen.getByTestId("timeline-bar-1200000")).toBeTruthy();
+  });
+
+  it("saves a recent result summary", async () => {
+    render(
+      <ResultScreen
+        navigation={{} as never}
+        route={{ key: "Result", name: "Result", params: { result } } as RootStackParamList["Result"] & never}
+      />
+    );
+
+    await waitFor(async () => {
+      await expect(loadSessionResultSummaries()).resolves.toMatchObject([
+        {
+          triggerTimestampMs: result.triggerTimestampMs,
+          wakeMode: "balanced",
+          reasonCode: "stable_zone"
+        }
+      ]);
+    });
   });
 });

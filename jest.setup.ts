@@ -1,5 +1,9 @@
 import "react-native-gesture-handler/jestSetup";
 
+jest.mock("@react-native-async-storage/async-storage", () =>
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock")
+);
+
 jest.mock("@react-navigation/native", () => {
   const actual = jest.requireActual("@react-navigation/native");
 
@@ -35,6 +39,11 @@ jest.mock("@react-navigation/native-stack", () => {
         const ActiveComponent = activeScreen.props.component;
 
         const navigation = {
+          addListener: (_eventName: string, listener: () => void) => {
+            listener();
+
+            return jest.fn();
+          },
           push: (name: string, params?: unknown) => setCurrentRoute({ name, params })
         };
         const route = {

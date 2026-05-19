@@ -1,9 +1,12 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import App from "../../src/app/App";
+import { STORAGE_KEYS } from "../../src/data/storage/storageKeys";
 
 describe("alarm settings flow", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     jest.useFakeTimers();
   });
 
@@ -14,6 +17,7 @@ describe("alarm settings flow", () => {
   it("navigates to the placeholder session shell with selected settings", async () => {
     render(<App />);
 
+    expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
     expect(screen.getByText("Latest wake-up time")).toBeTruthy();
     expect(screen.getByText("Wake window")).toBeTruthy();
     expect(screen.getByText("Wake mode")).toBeTruthy();
@@ -56,6 +60,7 @@ describe("alarm settings flow", () => {
   it("navigates to the result screen when the simulated engine triggers", async () => {
     render(<App />);
 
+    expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
     fireEvent.press(screen.getByTestId("start-session-button"));
     expect(await screen.findByTestId("session-status-value")).toHaveTextContent("Monitoring");
 
@@ -67,5 +72,68 @@ describe("alarm settings flow", () => {
     expect(screen.getByTestId("result-reason-code")).toHaveTextContent(/stable_zone/);
     expect(screen.getByTestId("result-wake-mode")).toHaveTextContent("Wake mode: Balanced");
     expect(screen.getByTestId("result-wakeability-timeline")).toBeTruthy();
+  });
+
+  it("initializes alarm settings from saved local settings", async () => {
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.alarmSettings,
+      JSON.stringify({
+        latestWakeTime: { hour: 9, minute: 25 },
+        wakeWindowMinutes: 60,
+        wakeMode: "fast"
+      })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByTestId("latest-wake-time-value")).toHaveTextContent("09:25");
+    fireEvent.press(screen.getByTestId("start-session-button"));
+
+    expect(await screen.findByTestId("session-latest-wake-time")).toHaveTextContent(
+      "Latest wake-up time: 09:25"
+    );
+    expect(screen.getByTestId("session-wake-window")).toHaveTextContent("Wake window: 60 min");
+    expect(screen.getByTestId("session-wake-mode")).toHaveTextContent("Wake mode: Fast");
+  });
+
+  it("clears saved settings and recent summaries", async () => {
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.alarmSettings,
+      JSON.stringify({
+        latestWakeTime: { hour: 9, minute: 25 },
+        wakeWindowMinutes: 60,
+        wakeMode: "fast"
+      })
+    );
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.sessionResultSummaries,
+      JSON.stringify([
+        {
+          id: "recent",
+          completedAtMs: 2000,
+          triggerTimestampMs: 1000,
+          wakeMode: "balanced",
+          latestWakeTime: { hour: 7, minute: 0 },
+          wakeWindowMinutes: 30,
+          reasonCode: "stable_zone"
+        }
+      ])
+    );
+
+    render(<App />);
+
+    expect(await screen.findByTestId("latest-wake-time-value")).toHaveTextContent("09:25");
+    expect(screen.getByText(/Stable wake zone/)).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("clear-local-data-button"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latest-wake-time-value")).toHaveTextContent("07:00");
+      expect(screen.getByTestId("recent-sessions-empty")).toHaveTextContent("No recent sessions yet.");
+    });
+    await expect(AsyncStorage.getItem(STORAGE_KEYS.alarmSettings)).resolves.toBeNull();
+    await expect(AsyncStorage.getItem(STORAGE_KEYS.sessionResultSummaries)).resolves.toBeNull();
   });
 });

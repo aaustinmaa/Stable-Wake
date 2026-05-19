@@ -1,17 +1,24 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useEffect } from "react";
 import { ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { RootStackParamList } from "../../../app/navigation/routeTypes";
+import { saveSessionResultSummary } from "../../../data/storage/sessionResultStorage";
 import { ExplanationList } from "../components/ExplanationList";
 import { WakeabilityTimeline } from "../components/WakeabilityTimeline";
 import { WakeSummaryCard } from "../components/WakeSummaryCard";
+import { createSessionResultSummary } from "../utils/createSessionResultSummary";
 import { colors, spacing } from "../../../shared/theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Result">;
 
 export function ResultScreen({ route }: Props) {
   const { result } = route.params;
+
+  useEffect(() => {
+    saveSessionResultSummary(createSessionResultSummary(result));
+  }, [result]);
 
   return (
     <SafeAreaView style={styles.screen}>
