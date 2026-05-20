@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Vibration } from "react-native";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
-const ALARM_SOUND = require("../../../../assets/audio/alarm-placeholder.wav");
+const ALARM_SOUND = require("../../../../assets/audio/alarm-sound.mp3");
 const VIBRATION_PATTERN_MS = [0, 700, 500];
 
 type AudioStatusText = "idle" | "loading" | "starting" | "playing" | "stopped" | `error: ${string}`;
