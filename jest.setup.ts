@@ -1,4 +1,8 @@
 import "react-native-gesture-handler/jestSetup";
+import { Vibration } from "react-native";
+
+Vibration.vibrate = jest.fn();
+Vibration.cancel = jest.fn();
 
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock")
@@ -40,11 +44,14 @@ jest.mock("@react-navigation/native-stack", () => {
 
         const navigation = {
           addListener: (_eventName: string, listener: () => void) => {
-            listener();
+            if (_eventName === "focus") {
+              listener();
+            }
 
             return jest.fn();
           },
-          push: (name: string, params?: unknown) => setCurrentRoute({ name, params })
+          push: (name: string, params?: unknown) => setCurrentRoute({ name, params }),
+          replace: (name: string, params?: unknown) => setCurrentRoute({ name, params })
         };
         const route = {
           key: currentRoute.name,
@@ -59,6 +66,30 @@ jest.mock("@react-navigation/native-stack", () => {
     }
   };
 });
+jest.mock("expo-audio", () => {
+  const player = {
+    loop: false,
+    isLoaded: true,
+    volume: 1,
+    play: jest.fn(),
+    pause: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    remove: jest.fn()
+  };
+
+  return {
+    __mockAudioPlayer: player,
+    setAudioModeAsync: jest.fn(() => Promise.resolve()),
+    useAudioPlayer: jest.fn(() => player),
+    useAudioPlayerStatus: jest.fn(() => ({
+      isLoaded: true,
+      playing: false
+    }))
+  };
+});
+jest.mock("expo-keep-awake", () => ({
+  useKeepAwake: jest.fn()
+}));
 jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
 jest.mock("react-native-screens", () => {
   const { View } = require("react-native");

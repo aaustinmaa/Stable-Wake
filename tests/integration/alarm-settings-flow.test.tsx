@@ -35,7 +35,7 @@ describe("alarm settings flow", () => {
     expect(screen.getByTestId("session-wake-window")).toHaveTextContent("Wake window: 45 min");
     expect(screen.getByTestId("session-wake-mode")).toHaveTextContent("Wake mode: Comfort");
     expect(screen.getByTestId("session-placeholder-message")).toHaveTextContent(
-      "This is simulated monitoring only. Real sleep detection and alarm audio are not implemented yet."
+      "This is simulated monitoring only. Real sleep detection and background alarms are not implemented yet."
     );
 
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Monitoring");
@@ -57,7 +57,7 @@ describe("alarm settings flow", () => {
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Completed");
   });
 
-  it("navigates to the result screen when the simulated engine triggers", async () => {
+  it("navigates to the alarm ringing screen when the simulated engine triggers", async () => {
     render(<App />);
 
     expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
@@ -68,10 +68,36 @@ describe("alarm settings flow", () => {
       jest.advanceTimersByTime(41000);
     });
 
+    expect(await screen.findByText("Wake up")).toBeTruthy();
+    expect(screen.getByTestId("alarm-reason-code")).toHaveTextContent(/stable_zone/);
+    expect(screen.getByTestId("alarm-wake-mode")).toHaveTextContent("Wake mode: Balanced");
+    expect(screen.getByTestId("alarm-snooze-button")).toHaveTextContent("Snooze (demo 5s)");
+  });
+
+  it("continues from ringing to result and saves recent session history", async () => {
+    render(<App />);
+
+    expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("start-session-button"));
+    expect(await screen.findByTestId("session-status-value")).toHaveTextContent("Monitoring");
+
+    act(() => {
+      jest.advanceTimersByTime(41000);
+    });
+
+    expect(await screen.findByText("Wake up")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("alarm-stop-button"));
+
     expect(await screen.findByText("Session Result")).toBeTruthy();
     expect(screen.getByTestId("result-reason-code")).toHaveTextContent(/stable_zone/);
     expect(screen.getByTestId("result-wake-mode")).toHaveTextContent("Wake mode: Balanced");
     expect(screen.getByTestId("result-wakeability-timeline")).toBeTruthy();
+
+    await waitFor(async () => {
+      const saved = await AsyncStorage.getItem(STORAGE_KEYS.sessionResultSummaries);
+
+      expect(saved).toContain("stable_zone");
+    });
   });
 
   it("initializes alarm settings from saved local settings", async () => {

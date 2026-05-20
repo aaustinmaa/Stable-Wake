@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useKeepAwake } from "expo-keep-awake";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -25,6 +26,8 @@ const STATUS_LABELS: Record<SessionStatus, string> = {
 };
 
 export function SleepSessionScreen({ navigation, route }: Props) {
+  useKeepAwake("StableWakeSleepSession");
+
   const { settings } = route.params;
   const {
     status,
@@ -37,7 +40,7 @@ export function SleepSessionScreen({ navigation, route }: Props) {
     startSimulation,
     stopSession
   } = useSleepSession(settings, {
-    onResult: (result) => navigation.push("Result", { result })
+    onResult: (result) => navigation.push("AlarmRinging", { result })
   });
   const isRunning = status === "monitoring" || status === "wake_window_active";
 
@@ -62,7 +65,7 @@ export function SleepSessionScreen({ navigation, route }: Props) {
         </View>
 
         <Text testID="session-placeholder-message" style={styles.placeholder}>
-          This is simulated monitoring only. Real sleep detection and alarm audio are not implemented yet.
+          This is simulated monitoring only. Real sleep detection and background alarms are not implemented yet.
         </Text>
 
         <View style={styles.summaryCard}>

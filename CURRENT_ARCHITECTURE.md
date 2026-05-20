@@ -1,7 +1,7 @@
 # CURRENT_ARCHITECTURE.md
 
 ## Overview
-StableWake is structured as a small Expo React Native TypeScript app. UI lives in `src/features`, domain logic lives in `src/domain`, simulation lives in `src/services/simulation`, and shared constants/utilities live in `src/shared`.
+StableWake is a small Expo React Native TypeScript app. UI lives in `src/features`, domain logic lives in `src/domain`, local persistence lives in `src/data/storage`, simulation lives in `src/services/simulation`, and shared constants/utilities live in `src/shared`.
 
 ## Folder Structure
 ```text
@@ -12,12 +12,19 @@ src/
       RootNavigator.tsx
       routeTypes.ts
 
+  data/
+    storage/
+      alarmSettingsStorage.ts
+      sessionResultStorage.ts
+      storageKeys.ts
+
   domain/
     models/
       AlarmSettings.ts
       ClockTime.ts
       ExplanationItem.ts
       SessionResult.ts
+      SessionResultSummary.ts
       SessionStatus.ts
       SleepSample.ts
       WakeDecision.ts
@@ -36,6 +43,7 @@ src/
   features/
     alarm-settings/
       components/
+        RecentSessionsCard.tsx
         TimePickerCard.tsx
         WakeModeSelector.tsx
         WakeWindowSelector.tsx
@@ -50,6 +58,8 @@ src/
         WakeSummaryCard.tsx
       screens/
         ResultScreen.tsx
+      utils/
+        createSessionResultSummary.ts
     sleep-session/
       hooks/
         useSleepSession.ts
@@ -89,6 +99,7 @@ Flow:
 - `ExplanationItem`: code, title, description.
 - `WakeDecision`: should trigger, reason code, explanation items.
 - `SessionResult`: trigger timestamp, mode/settings, reason, explanations, wake scores, selected settings.
+- `SessionResultSummary`: lightweight persisted recent session summary.
 
 ## Wake Engine Behavior
 The wake engine is pure and UI-independent. Entry point:
@@ -133,9 +144,12 @@ The simulation is intentionally simple and replaceable. It should not be treated
 
 ## UI Behavior
 `AlarmSettingsScreen`:
+- Loads saved alarm settings from local storage.
 - Uses a custom two-wheel time picker for hour and minute.
 - Uses preset wake windows.
 - Uses wake mode buttons.
+- Shows recent simulated session summaries.
+- Provides a non-prominent clear saved data action.
 - Passes selected settings to the session route.
 
 `SleepSessionScreen`:
@@ -147,5 +161,23 @@ The simulation is intentionally simple and replaceable. It should not be treated
 `ResultScreen`:
 - Uses `SafeAreaView` and `ScrollView`.
 - Shows trigger time, reason, selected settings, explanation items, and a simple bar timeline of wakeability.
+- Saves a lightweight recent session summary locally.
 - Does not claim sleep stages or medical accuracy.
+
+## Persistence Behavior
+Persistence uses AsyncStorage through isolated storage adapters:
+- `alarmSettingsStorage.ts`
+- `sessionResultStorage.ts`
+
+Stored data:
+- Alarm settings: `latestWakeTime`, `wakeWindowMinutes`, `wakeMode`.
+- Recent session summaries: id, completed timestamp, trigger timestamp, wake mode, latest wake time, wake window, reason code.
+
+Storage behavior:
+- Uses versioned keys from `storageKeys.ts`.
+- JSON serializes/deserializes small local payloads.
+- Validates loaded data before using it.
+- Falls back safely for missing, malformed, or invalid storage.
+- Keeps recent summaries newest-first and capped at 5.
+- Does not persist full wake score arrays.
 

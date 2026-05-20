@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "./routeTypes";
 import { AlarmSettingsScreen } from "../../features/alarm-settings/screens/AlarmSettingsScreen";
+import { AlarmRingingScreen } from "../../features/alarm-ringing/screens/AlarmRingingScreen";
 import { ResultScreen } from "../../features/results/screens/ResultScreen";
 import { SleepSessionScreen } from "../../features/sleep-session/screens/SleepSessionScreen";
 
@@ -19,6 +20,15 @@ export function RootNavigator() {
         name="SleepSession"
         component={SleepSessionScreen}
         options={{ title: "Session" }}
+      />
+      <Stack.Screen
+        name="AlarmRinging"
+        component={AlarmRingingScreen}
+        options={{
+          title: "Alarm",
+          headerBackVisible: false,
+          gestureEnabled: false
+        }}
       />
       <Stack.Screen
         name="Result"

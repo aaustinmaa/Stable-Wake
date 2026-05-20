@@ -68,6 +68,29 @@ Important decisions:
 - No simulation behavior changes.
 - No design system or heavy UI library.
 
+## Milestone 5: Local Persistence And Recent Session History
+Implemented:
+- AsyncStorage dependency.
+- Versioned local storage keys.
+- Alarm settings load/save/clear adapter.
+- Recent session result summary load/save/clear adapter.
+- `SessionResultSummary` domain model.
+- Result-to-summary mapping utility.
+- Alarm settings restore on app/screen start.
+- Automatic save when user changes settings.
+- Recent simulated sessions section on settings screen.
+- Clear saved data action.
+- Result screen saves lightweight recent summaries.
+- Storage and persistence behavior tests.
+
+Important decisions:
+- Storage adapters stay under `src/data/storage`.
+- No Zustand or complex state management.
+- Invalid or malformed storage falls back safely.
+- Recent summaries are capped at 5 and newest-first.
+- Full `wakeScores` arrays are not persisted.
+- No backend, auth, cloud sync, notifications, alarm audio, or real sensors.
+
 ## Post-Milestone Bugfixes
 Implemented:
 - Expo SDK upgraded to SDK 54 for current Expo Go compatibility.
