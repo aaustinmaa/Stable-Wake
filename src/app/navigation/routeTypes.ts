@@ -4,6 +4,6 @@ import type { SessionResult } from "../../domain/models/SessionResult";
 export type RootStackParamList = {
   AlarmSettings: undefined;
   SleepSession: { settings: AlarmSettings };
-  AlarmRinging: { result: SessionResult };
+  AlarmRinging: { result: SessionResult; fallbackNotificationId?: string | null };
   Result: { result: SessionResult };
 };

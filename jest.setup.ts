@@ -90,6 +90,36 @@ jest.mock("expo-audio", () => {
 jest.mock("expo-keep-awake", () => ({
   useKeepAwake: jest.fn()
 }));
+jest.mock("expo-notifications", () => ({
+  AndroidImportance: {
+    HIGH: 6
+  },
+  IosAuthorizationStatus: {
+    NOT_DETERMINED: 0,
+    DENIED: 1,
+    AUTHORIZED: 2,
+    PROVISIONAL: 3,
+    EPHEMERAL: 4
+  },
+  SchedulableTriggerInputTypes: {
+    DATE: "date"
+  },
+  getPermissionsAsync: jest.fn(() =>
+    Promise.resolve({
+      granted: true,
+      status: "granted"
+    })
+  ),
+  requestPermissionsAsync: jest.fn(() =>
+    Promise.resolve({
+      granted: true,
+      status: "granted"
+    })
+  ),
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve(null)),
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve("fallback-notification-id")),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve())
+}));
 jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
 jest.mock("react-native-screens", () => {
   const { View } = require("react-native");

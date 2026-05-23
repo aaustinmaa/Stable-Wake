@@ -4,9 +4,27 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import App from "../../src/app/App";
 import { STORAGE_KEYS } from "../../src/data/storage/storageKeys";
 
+const notifications = jest.requireMock("expo-notifications") as {
+  getPermissionsAsync: jest.Mock;
+  requestPermissionsAsync: jest.Mock;
+  scheduleNotificationAsync: jest.Mock;
+  cancelScheduledNotificationAsync: jest.Mock;
+};
+
 describe("alarm settings flow", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    jest.clearAllMocks();
+    notifications.getPermissionsAsync.mockResolvedValue({
+      granted: true,
+      status: "granted"
+    });
+    notifications.requestPermissionsAsync.mockResolvedValue({
+      granted: true,
+      status: "granted"
+    });
+    notifications.scheduleNotificationAsync.mockResolvedValue("fallback-notification-id");
+    notifications.cancelScheduledNotificationAsync.mockResolvedValue(undefined);
     jest.useFakeTimers();
   });
 
@@ -37,6 +55,14 @@ describe("alarm settings flow", () => {
     expect(screen.getByTestId("session-placeholder-message")).toHaveTextContent(
       "This is simulated monitoring only. Real sleep detection and background alarms are not implemented yet."
     );
+    await waitFor(() => {
+      expect(screen.getByTestId("notification-fallback-status")).toHaveTextContent(
+        "Latest-time notification fallback scheduled for 08:05."
+      );
+    });
+    expect(screen.getByTestId("notification-fallback-note")).toHaveTextContent(
+      "Smart wake works while the app is active. The notification fallback is only a latest-time reminder."
+    );
 
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Monitoring");
     expect(screen.getByTestId("session-simulation-time")).toHaveTextContent("Current simulated time: 07:10");
@@ -55,6 +81,34 @@ describe("alarm settings flow", () => {
 
     fireEvent.press(screen.getByTestId("stop-session-button"));
     expect(screen.getByTestId("session-status-value")).toHaveTextContent("Completed");
+    await waitFor(() => {
+      expect(notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
+        "fallback-notification-id"
+      );
+    });
+  });
+
+  it("shows a disabled fallback note when notification permission is denied", async () => {
+    notifications.getPermissionsAsync.mockResolvedValue({
+      granted: false,
+      status: "denied"
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("start-session-button"));
+
+    expect(await screen.findByTestId("session-status-value")).toHaveTextContent("Monitoring");
+    await waitFor(() => {
+      expect(screen.getByTestId("notification-fallback-status")).toHaveTextContent(
+        "Notification fallback disabled. Foreground smart wake still works while the app is active."
+      );
+    });
+    expect(screen.getByTestId("session-simulation-time")).toHaveTextContent(
+      "Current simulated time: 06:20"
+    );
+    expect(notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
   it("navigates to the alarm ringing screen when the simulated engine triggers", async () => {
@@ -63,12 +117,22 @@ describe("alarm settings flow", () => {
     expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
     fireEvent.press(screen.getByTestId("start-session-button"));
     expect(await screen.findByTestId("session-status-value")).toHaveTextContent("Monitoring");
+    await waitFor(() => {
+      expect(screen.getByTestId("notification-fallback-status")).toHaveTextContent(
+        "Latest-time notification fallback scheduled for 07:00."
+      );
+    });
 
     act(() => {
       jest.advanceTimersByTime(41000);
     });
 
     expect(await screen.findByText("Wake up")).toBeTruthy();
+    await waitFor(() => {
+      expect(notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
+        "fallback-notification-id"
+      );
+    });
     expect(screen.getByTestId("alarm-reason-code")).toHaveTextContent(/stable_zone/);
     expect(screen.getByTestId("alarm-wake-mode")).toHaveTextContent("Wake mode: Balanced");
     expect(screen.getByTestId("alarm-snooze-button")).toHaveTextContent("Snooze (demo 5s)");
@@ -80,6 +144,11 @@ describe("alarm settings flow", () => {
     expect(await screen.findByText("Saved locally on this device.")).toBeTruthy();
     fireEvent.press(screen.getByTestId("start-session-button"));
     expect(await screen.findByTestId("session-status-value")).toHaveTextContent("Monitoring");
+    await waitFor(() => {
+      expect(screen.getByTestId("notification-fallback-status")).toHaveTextContent(
+        "Latest-time notification fallback scheduled for 07:00."
+      );
+    });
 
     act(() => {
       jest.advanceTimersByTime(41000);

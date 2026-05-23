@@ -13,6 +13,9 @@ const audio = jest.requireMock("expo-audio") as {
   };
   setAudioModeAsync: jest.Mock;
 };
+const notifications = jest.requireMock("expo-notifications") as {
+  cancelScheduledNotificationAsync: jest.Mock;
+};
 
 const result: SessionResult = {
   triggerTimestampMs: 20 * 60000,
@@ -56,7 +59,7 @@ function renderAlarmRinging() {
         {
           key: "AlarmRinging",
           name: "AlarmRinging",
-          params: { result }
+          params: { result, fallbackNotificationId: "fallback-notification-id" }
         } as RootStackParamList["AlarmRinging"] & never
       }
     />
@@ -120,6 +123,9 @@ describe("AlarmRingingScreen", () => {
     expect(audio.__mockAudioPlayer.pause).toHaveBeenCalled();
     expect(audio.__mockAudioPlayer.seekTo).toHaveBeenCalledWith(0);
     expect(Vibration.cancel).toHaveBeenCalled();
+    expect(notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
+      "fallback-notification-id"
+    );
     expect(navigation.replace).toHaveBeenCalledWith("Result", { result });
   });
 

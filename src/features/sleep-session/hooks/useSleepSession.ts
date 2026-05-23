@@ -7,6 +7,11 @@ import type { SessionStatus } from "../../../domain/models/SessionStatus";
 import type { SleepSample } from "../../../domain/models/SleepSample";
 import { evaluateWakeEngine } from "../../../domain/wake-engine/wakeEngine";
 import { MS_PER_MINUTE } from "../../../domain/wake-engine/wakeEngine.types";
+import type { FallbackNotificationState } from "../../../services/notifications/notification.types";
+import {
+  cancelFallbackNotification,
+  scheduleLatestWakeFallback
+} from "../../../services/notifications/notificationService";
 import {
   createSimulatedSessionPlan,
   createSimulatedSleepStream,
@@ -18,7 +23,14 @@ import { addMinutesToClockTime } from "../../../shared/utils/time";
 type SimulatedSleepStream = ReturnType<typeof createSimulatedSleepStream>;
 
 type UseSleepSessionOptions = {
-  onResult?: (result: SessionResult) => void;
+  onResult?: (result: SessionResult, fallbackNotificationId?: string | null) => void;
+};
+
+const INITIAL_FALLBACK_NOTIFICATION_STATE: FallbackNotificationState = {
+  status: "idle",
+  permission: "unknown",
+  scheduledFor: null,
+  identifier: null
 };
 
 export function useSleepSession(settings: AlarmSettings, options: UseSleepSessionOptions = {}) {
@@ -26,7 +38,11 @@ export function useSleepSession(settings: AlarmSettings, options: UseSleepSessio
   const [status, setStatus] = useState<SessionStatus>("configured");
   const [currentSample, setCurrentSample] = useState<SleepSample | null>(null);
   const [samples, setSamples] = useState<SleepSample[]>([]);
+  const [fallbackNotification, setFallbackNotification] =
+    useState<FallbackNotificationState>(INITIAL_FALLBACK_NOTIFICATION_STATE);
   const streamRef = useRef<SimulatedSleepStream | null>(null);
+  const fallbackNotificationIdRef = useRef<string | null>(null);
+  const fallbackRequestIdRef = useRef(0);
   const samplesRef = useRef<SleepSample[]>([]);
   const hasDeliveredResultRef = useRef(false);
   const onResultRef = useRef(onResult);
@@ -50,13 +66,72 @@ export function useSleepSession(settings: AlarmSettings, options: UseSleepSessio
     onResultRef.current = onResult;
   }, [onResult]);
 
+  const cancelScheduledFallback = useCallback(
+    async (nextStatus: FallbackNotificationState["status"] = "cancelled") => {
+      fallbackRequestIdRef.current += 1;
+      const notificationId = fallbackNotificationIdRef.current;
+
+      fallbackNotificationIdRef.current = null;
+
+      await cancelFallbackNotification(notificationId);
+
+      setFallbackNotification((current) => ({
+        status: nextStatus,
+        permission: current.permission,
+        scheduledFor: null,
+        identifier: null
+      }));
+    },
+    []
+  );
+
   const startSimulation = useCallback(() => {
     streamRef.current?.stop();
+    fallbackRequestIdRef.current += 1;
+    const previousFallbackNotificationId = fallbackNotificationIdRef.current;
+
+    fallbackNotificationIdRef.current = null;
+    void cancelFallbackNotification(previousFallbackNotificationId);
     hasDeliveredResultRef.current = false;
     setCurrentSample(null);
     samplesRef.current = [];
     setSamples([]);
     setStatus("monitoring");
+    setFallbackNotification(INITIAL_FALLBACK_NOTIFICATION_STATE);
+
+    const fallbackRequestId = fallbackRequestIdRef.current + 1;
+    fallbackRequestIdRef.current = fallbackRequestId;
+
+    scheduleLatestWakeFallback(settings).then((result) => {
+      if (fallbackRequestIdRef.current !== fallbackRequestId) {
+        if (result.status === "scheduled") {
+          void cancelFallbackNotification(result.notification.identifier);
+        }
+
+        return;
+      }
+
+      if (result.status === "scheduled") {
+        fallbackNotificationIdRef.current = result.notification.identifier;
+        setFallbackNotification({
+          status: "scheduled",
+          permission: result.permission,
+          scheduledFor: result.notification.scheduledFor,
+          identifier: result.notification.identifier
+        });
+
+        return;
+      }
+
+      fallbackNotificationIdRef.current = null;
+      setFallbackNotification({
+        status: result.status,
+        permission: result.permission,
+        scheduledFor: null,
+        identifier: null,
+        errorMessage: result.status === "error" ? result.errorMessage : undefined
+      });
+    });
 
     const stream = createSimulatedSleepStream({
       settings,
@@ -86,6 +161,9 @@ export function useSleepSession(settings: AlarmSettings, options: UseSleepSessio
           streamRef.current?.stop();
           streamRef.current = null;
           setStatus("completed");
+          const fallbackNotificationId = fallbackNotificationIdRef.current;
+
+          void cancelScheduledFallback("cancelled");
           onResultRef.current?.({
             triggerTimestampMs: sample.timestampMs,
             wakeMode: settings.wakeMode,
@@ -95,7 +173,7 @@ export function useSleepSession(settings: AlarmSettings, options: UseSleepSessio
             explanationItems: nextEngineOutput.decision.explanationItems,
             wakeScores: nextEngineOutput.wakeScores,
             selectedSettings: settings
-          });
+          }, fallbackNotificationId);
         }
       },
       onComplete: () => {
@@ -105,21 +183,23 @@ export function useSleepSession(settings: AlarmSettings, options: UseSleepSessio
 
     streamRef.current = stream;
     stream.start();
-  }, [latestWakeTimeMs, settings, wakeWindowStartMs]);
+  }, [cancelScheduledFallback, latestWakeTimeMs, settings, wakeWindowStartMs]);
 
   useEffect(() => {
     startSimulation();
 
     return () => {
       streamRef.current?.stop();
+      void cancelScheduledFallback("cancelled");
     };
-  }, [startSimulation]);
+  }, [cancelScheduledFallback, startSimulation]);
 
   const stopSession = useCallback(() => {
     streamRef.current?.stop();
     streamRef.current = null;
     setStatus("completed");
-  }, []);
+    void cancelScheduledFallback("cancelled");
+  }, [cancelScheduledFallback]);
 
   const currentClockTime: ClockTime | null = currentSample
     ? addMinutesToClockTime(plan.startClockTime, getSimulatedMinute(currentSample))
@@ -132,6 +212,7 @@ export function useSleepSession(settings: AlarmSettings, options: UseSleepSessio
     plan,
     elapsedSimulatedMinutes: currentSample ? getSimulatedMinute(currentSample) : 0,
     engineOutput,
+    fallbackNotification,
     isWakeWindowActive: currentSample ? isWakeWindowActive(getSimulatedMinute(currentSample)) : false,
     startSimulation,
     stopSession

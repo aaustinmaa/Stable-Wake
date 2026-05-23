@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../../app/navigation/routeTypes";
 import type { SessionResult } from "../../../domain/models/SessionResult";
 import type { WakeMode } from "../../../domain/models/WakeMode";
+import { cancelFallbackNotification } from "../../../services/notifications/notificationService";
 import { colors, spacing } from "../../../shared/theme";
 import { formatClockTime } from "../../../shared/utils/time";
 import { useForegroundAlarm } from "../hooks/useForegroundAlarm";
@@ -64,6 +65,7 @@ export function AlarmRingingScreen({ navigation, route }: Props) {
 
   const stopAndShowResult = () => {
     stopAlarm();
+    void cancelFallbackNotification(route.params.fallbackNotificationId);
     navigation.replace("Result", { result });
   };
 

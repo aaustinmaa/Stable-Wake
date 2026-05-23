@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { RootStackParamList } from "../../../app/navigation/routeTypes";
 import type { SessionStatus } from "../../../domain/models/SessionStatus";
 import type { WakeMode } from "../../../domain/models/WakeMode";
+import type { FallbackNotificationState } from "../../../services/notifications/notification.types";
 import { useSleepSession } from "../hooks/useSleepSession";
 import { formatClockTime } from "../../../shared/utils/time";
 import { colors, spacing } from "../../../shared/theme";
@@ -35,12 +36,14 @@ export function SleepSessionScreen({ navigation, route }: Props) {
     currentClockTime,
     elapsedSimulatedMinutes,
     engineOutput,
+    fallbackNotification,
     plan,
     isWakeWindowActive,
     startSimulation,
     stopSession
   } = useSleepSession(settings, {
-    onResult: (result) => navigation.push("AlarmRinging", { result })
+    onResult: (result, fallbackNotificationId) =>
+      navigation.push("AlarmRinging", { result, fallbackNotificationId })
   });
   const isRunning = status === "monitoring" || status === "wake_window_active";
 
@@ -67,6 +70,8 @@ export function SleepSessionScreen({ navigation, route }: Props) {
         <Text testID="session-placeholder-message" style={styles.placeholder}>
           This is simulated monitoring only. Real sleep detection and background alarms are not implemented yet.
         </Text>
+
+        <NotificationFallbackCard fallbackNotification={fallbackNotification} />
 
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Simulation</Text>
@@ -179,6 +184,50 @@ function MetricRow({ label, testID, value }: MetricRowProps) {
       </Text>
     </View>
   );
+}
+
+type NotificationFallbackCardProps = {
+  fallbackNotification: FallbackNotificationState;
+};
+
+function NotificationFallbackCard({ fallbackNotification }: NotificationFallbackCardProps) {
+  return (
+    <View style={styles.summaryCard}>
+      <Text style={styles.summaryTitle}>Latest-time fallback</Text>
+      <Text testID="notification-fallback-status" style={styles.metricValue}>
+        {getNotificationFallbackStatusText(fallbackNotification)}
+      </Text>
+      <Text testID="notification-fallback-note" style={styles.mutedText}>
+        Smart wake works while the app is active. The notification fallback is only a latest-time reminder.
+      </Text>
+    </View>
+  );
+}
+
+function getNotificationFallbackStatusText(fallbackNotification: FallbackNotificationState) {
+  if (fallbackNotification.status === "scheduled" && fallbackNotification.scheduledFor) {
+    return `Latest-time notification fallback scheduled for ${formatScheduledTime(
+      fallbackNotification.scheduledFor
+    )}.`;
+  }
+
+  if (fallbackNotification.status === "disabled") {
+    return "Notification fallback disabled. Foreground smart wake still works while the app is active.";
+  }
+
+  if (fallbackNotification.status === "error") {
+    return "Notification fallback could not be scheduled. Foreground smart wake still works while the app is active.";
+  }
+
+  if (fallbackNotification.status === "cancelled") {
+    return "Latest-time notification fallback cancelled.";
+  }
+
+  return "Preparing latest-time notification fallback.";
+}
+
+function formatScheduledTime(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 const styles = StyleSheet.create({
