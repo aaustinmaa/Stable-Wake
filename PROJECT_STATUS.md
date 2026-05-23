@@ -1,7 +1,7 @@
 # PROJECT_STATUS.md
 
 ## Current State
-StableWake is a local-first Expo React Native prototype with milestones 1, 2, 3, 4, 4.5, and 5 completed.
+StableWake is a local-first Expo React Native prototype with milestones 1, 2, 3, 4, 4.5, 5, and 6 completed.
 
 The app currently supports:
 - Alarm settings with latest wake time, wake window, and wake mode.
@@ -9,11 +9,12 @@ The app currently supports:
 - A small recent simulated session history saved locally.
 - A simulated sleep session that starts automatically after entering the session screen.
 - A deterministic wake engine that evaluates wakeability, stability, timing pressure, stable wake zones, drop protection, and latest-time fallback.
-- Automatic navigation to a result screen when the simulated engine first decides the alarm should trigger.
+- Automatic navigation to a foreground alarm ringing screen when the simulated engine first decides the alarm should trigger.
+- A foreground alarm experience with local audio playback, vibration, demo snooze, stop action, and safe navigation into results.
 - A result summary with wake mode, latest wake time, wake window, reason code, explanation items, and a simple wakeability timeline.
 - A clear saved data action for local settings and recent summaries.
 
-The app remains prototype-only. It does not use real sensors, alarm audio, vibration, notifications, background execution, backend services, auth, ML, wearables, or medical sleep-stage claims.
+The app remains prototype-only. It does not use real sensors, notifications, background execution, backend services, auth, ML, wearables, or medical sleep-stage claims.
 
 ## Current Tech Stack
 - Expo SDK 54.
@@ -22,6 +23,8 @@ The app remains prototype-only. It does not use real sensors, alarm audio, vibra
 - TypeScript.
 - React Navigation native stack.
 - AsyncStorage via `@react-native-async-storage/async-storage`.
+- Foreground audio via `expo-audio`.
+- Foreground keep-awake via `expo-keep-awake`.
 - Jest with `jest-expo`.
 - React Native Testing Library.
 
@@ -44,7 +47,8 @@ Current test coverage includes:
 - Wake engine behavior.
 - Result screen rendering.
 - Result summary local storage.
-- Session to result navigation.
+- Session to alarm ringing to result navigation.
+- Foreground alarm screen rendering, stop, snooze, audio/vibration cleanup, and mocked audio behavior.
 
 ## Completed Milestones
 - Milestone 1: app skeleton, navigation, alarm settings flow.
@@ -53,11 +57,12 @@ Current test coverage includes:
 - Milestone 4: result explanation flow and minimal result UI.
 - Milestone 4.5: UI cleanup, scroll fixes, and alarm-clock-style time picker.
 - Milestone 5: AsyncStorage persistence for settings and recent result summaries.
+- Milestone 6: foreground alarm ringing experience with sound, vibration, snooze, keep-awake, and result handoff.
 
 ## Known Limitations
 - Simulation runs only in foreground.
-- No real alarm experience yet.
-- No sound, vibration, notification, or background execution.
+- Foreground alarm audio and vibration require the app to stay open and active.
+- No notification, system-level alarm, or background execution.
 - No real device sensors.
 - No wearable integration.
 - No backend, auth, cloud sync, or multi-device support.
@@ -72,7 +77,7 @@ Do not add these without an explicit new milestone or product decision:
 - Subscriptions or billing.
 - Wearable integrations.
 - Real sensor integration.
-- Alarm audio, vibration, or notifications.
+- Notifications or system-level alarm behavior.
 - Background alarm execution.
 - Medical sleep-stage claims.
 - ML or personalization pipelines.

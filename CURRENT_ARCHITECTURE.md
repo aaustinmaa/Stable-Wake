@@ -51,6 +51,11 @@ src/
         useAlarmSettings.ts
       screens/
         AlarmSettingsScreen.tsx
+    alarm-ringing/
+      hooks/
+        useForegroundAlarm.ts
+      screens/
+        AlarmRingingScreen.tsx
     results/
       components/
         ExplanationList.tsx
@@ -82,12 +87,14 @@ src/
 Routes are defined in `src/app/navigation/routeTypes.ts`:
 - `AlarmSettings: undefined`
 - `SleepSession: { settings: AlarmSettings }`
+- `AlarmRinging: { result: SessionResult }`
 - `Result: { result: SessionResult }`
 
 Flow:
 1. `AlarmSettingsScreen`
 2. `SleepSessionScreen`
-3. `ResultScreen`
+3. `AlarmRingingScreen`
+4. `ResultScreen`
 
 ## Current Domain Models
 - `ClockTime`: `{ hour: number; minute: number }`
@@ -139,6 +146,7 @@ Current behavior:
 - After wake window starts, simulated wakeability rises into a stable wakeable segment.
 - The default simulation can trigger before latest fallback.
 - The stream cleans up its interval on stop/unmount.
+- When the wake engine triggers, the session builds the same `SessionResult` as before and routes to the foreground ringing screen.
 
 The simulation is intentionally simple and replaceable. It should not be treated as real sensor input.
 
@@ -156,7 +164,17 @@ The simulation is intentionally simple and replaceable. It should not be treated
 - Uses `SafeAreaView` and `ScrollView`.
 - Shows selected settings, simulated time, elapsed simulated time, wake window state, sample values, and wake engine debug metrics.
 - Automatically starts simulation on mount.
-- Navigates to `ResultScreen` when the engine first returns `shouldTrigger: true`.
+- Uses keep-awake while the foreground session is active.
+- Navigates to `AlarmRingingScreen` when the engine first returns `shouldTrigger: true`.
+
+`AlarmRingingScreen`:
+- Uses `SafeAreaView` and `ScrollView`.
+- Starts foreground-only audio with `expo-audio` and vibration when ringing.
+- Shows trigger time, reason, wake mode, selected wake settings, Stop, and a clearly labeled demo snooze action.
+- Stops audio/vibration on Stop, Snooze, unmount, and leaving the screen.
+- Uses `replace` navigation into `ResultScreen` so users do not back-navigate into a ringing screen.
+- Uses keep-awake while the foreground ringing screen is active.
+- Clearly states that this is a foreground prototype alarm and does not provide background alarm support.
 
 `ResultScreen`:
 - Uses `SafeAreaView` and `ScrollView`.

@@ -91,6 +91,25 @@ Important decisions:
 - Full `wakeScores` arrays are not persisted.
 - No backend, auth, cloud sync, notifications, alarm audio, or real sensors.
 
+## Milestone 6: Foreground Alarm Experience
+Implemented:
+- `AlarmRingingScreen` between session trigger and result.
+- Foreground-only alarm audio using `expo-audio` and a local bundled `alarm-sound.mp3` asset.
+- Vibration while ringing.
+- Stop action that cleans up alarm behavior and replaces into `ResultScreen`.
+- Clearly labeled demo snooze behavior that stops audio/vibration and rings again after 5 seconds.
+- Keep-awake during active session and ringing screens.
+- Safe audio/vibration cleanup on Stop, Snooze, unmount, and leaving the ringing screen.
+- Navigation update to `AlarmSettings -> SleepSession -> AlarmRinging -> Result`.
+- Ringing screen tests with mocked audio, vibration, and keep-awake.
+- Result wakeability timeline layout fix so bars stay within the card.
+
+Important decisions:
+- Milestone 6 remains foreground-only.
+- No background execution, notifications, system alarms, real sensors, backend, auth, cloud sync, or wake-engine changes were added.
+- Snooze is a demo foreground behavior, not recurring alarm scheduling.
+- The same `SessionResult` flows from session trigger through ringing into result storage/display.
+
 ## Post-Milestone Bugfixes
 Implemented:
 - Expo SDK upgraded to SDK 54 for current Expo Go compatibility.
