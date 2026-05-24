@@ -110,11 +110,43 @@ Important decisions:
 - Snooze is a demo foreground behavior, not recurring alarm scheduling.
 - The same `SessionResult` flows from session trigger through ringing into result storage/display.
 
+## Milestone 7: Local Notification Fallback
+Implemented:
+- `expo-notifications` dependency and config plugin.
+- Notification service boundary under `src/services/notifications`.
+- Next occurrence calculation for `ClockTime` using local wall-clock time.
+- Notification permission request flow at session start.
+- One-shot latest-wake-time local notification fallback.
+- Android notification channel setup.
+- Session UI status for scheduled, disabled, cancelled, or failed fallback notification state.
+- Cancellation of scheduled fallback notification on early foreground trigger and session stop.
+- Defensive fallback cancellation on alarm Stop.
+- Unit tests for notification scheduling, denial, cancellation, Android channel setup, errors, and time calculation.
+- Integration tests for scheduling, denied permissions, early trigger cancellation, stop cancellation, and existing session flow.
+
+Important decisions:
+- Milestone 7 is a latest-time safety net only.
+- Notification fallback uses real device wall-clock time, not accelerated simulation time.
+- No background wake engine, background task, push notifications, backend, sensors, auth, recurrence, or notification-tap navigation were added.
+- Default notification sound is used; custom notification sound remains future work.
+
+## Milestone 7.1: Pause Simulation While App Is Inactive
+Implemented:
+- React Native `AppState` handling in the simulation stream.
+- Active-time accumulation for the accelerated simulation clock.
+- Pause behavior when AppState becomes inactive/backgrounded.
+- Resume behavior from previous simulated elapsed time when AppState becomes active.
+- Cleanup of AppState listeners and timers on stream stop/unmount.
+- Tests for active ticking, inactive/background pause, active resume, and avoiding background-time latest fallback.
+
+Important decisions:
+- Notification fallback behavior was not changed and still uses real wall-clock latest wake time.
+- Wake engine logic, stable wake trigger logic, simulation sample pattern, storage behavior, foreground alarm audio/vibration, and notification scheduling rules were not changed.
+
 ## Post-Milestone Bugfixes
 Implemented:
 - Expo SDK upgraded to SDK 54 for current Expo Go compatibility.
 - Simulation auto-starts on session mount.
-- Simulation uses accelerated time: 1 real second = 1 simulated minute.
+- Simulation uses accelerated time: 1 active real second = 1 simulated minute.
 - Default simulation now includes a deterministic stable wakeable segment so early stable-zone triggers are observable.
 - Session result delivery guards against repeated navigation.
-

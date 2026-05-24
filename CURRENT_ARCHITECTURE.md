@@ -1,7 +1,7 @@
 # CURRENT_ARCHITECTURE.md
 
 ## Overview
-StableWake is a small Expo React Native TypeScript app. UI lives in `src/features`, domain logic lives in `src/domain`, local persistence lives in `src/data/storage`, simulation lives in `src/services/simulation`, and shared constants/utilities live in `src/shared`.
+StableWake is a small Expo React Native TypeScript app. UI lives in `src/features`, domain logic lives in `src/domain`, local persistence lives in `src/data/storage`, simulation lives in `src/services/simulation`, local notification fallback logic lives in `src/services/notifications`, and shared constants/utilities live in `src/shared`.
 
 ## Folder Structure
 ```text
@@ -72,6 +72,9 @@ src/
         SleepSessionScreen.tsx
 
   services/
+    notifications/
+      notification.types.ts
+      notificationService.ts
     simulation/
       createSimulatedSleepStream.ts
 
@@ -87,7 +90,7 @@ src/
 Routes are defined in `src/app/navigation/routeTypes.ts`:
 - `AlarmSettings: undefined`
 - `SleepSession: { settings: AlarmSettings }`
-- `AlarmRinging: { result: SessionResult }`
+- `AlarmRinging: { result: SessionResult; fallbackNotificationId?: string | null }`
 - `Result: { result: SessionResult }`
 
 Flow:
@@ -107,6 +110,7 @@ Flow:
 - `WakeDecision`: should trigger, reason code, explanation items.
 - `SessionResult`: trigger timestamp, mode/settings, reason, explanations, wake scores, selected settings.
 - `SessionResultSummary`: lightweight persisted recent session summary.
+- Notification service types: permission state, fallback status, scheduled fallback notification metadata.
 
 ## Wake Engine Behavior
 The wake engine is pure and UI-independent. Entry point:
@@ -140,15 +144,32 @@ Simulation lives in `src/services/simulation/createSimulatedSleepStream.ts`.
 
 Current behavior:
 - Session starts automatically when `SleepSessionScreen` mounts.
-- Acceleration is 1 real second = 1 simulated minute.
+- Acceleration is 1 active real second = 1 simulated minute.
+- Accelerated simulated time advances only while React Native `AppState` is active.
+- When AppState becomes inactive/backgrounded, active elapsed time is banked and the simulation clock pauses.
+- When AppState returns active, simulation resumes from the previous accumulated active elapsed time.
 - Samples are deterministic.
 - The first 10 simulated minutes are before the wake window.
 - After wake window starts, simulated wakeability rises into a stable wakeable segment.
 - The default simulation can trigger before latest fallback.
-- The stream cleans up its interval on stop/unmount.
+- The stream cleans up its interval and AppState listener on stop/unmount.
 - When the wake engine triggers, the session builds the same `SessionResult` as before and routes to the foreground ringing screen.
 
 The simulation is intentionally simple and replaceable. It should not be treated as real sensor input.
+
+## Notification Fallback Behavior
+Notification fallback logic lives in `src/services/notifications/notificationService.ts`.
+
+Current behavior:
+- On session start, the app requests notification permission if needed.
+- It computes the next local wall-clock occurrence of `AlarmSettings.latestWakeTime`.
+- It schedules one local notification with title `StableWake fallback alarm` and body `Latest wake time reached.`.
+- The notification uses real device wall-clock time, not accelerated simulation time.
+- If permission is denied or scheduling fails, the session continues and the UI shows that fallback is disabled/unavailable.
+- If the foreground wake engine triggers early, the scheduled fallback notification is cancelled to avoid duplicate alerts.
+- If the user stops the session, the scheduled fallback notification is cancelled.
+- Android notification channel setup is handled in the notification service.
+- No background wake engine, background task, push token, remote push notification, recurrence, or notification-tap navigation is implemented.
 
 ## UI Behavior
 `AlarmSettingsScreen`:
@@ -163,6 +184,7 @@ The simulation is intentionally simple and replaceable. It should not be treated
 `SleepSessionScreen`:
 - Uses `SafeAreaView` and `ScrollView`.
 - Shows selected settings, simulated time, elapsed simulated time, wake window state, sample values, and wake engine debug metrics.
+- Shows latest-time fallback notification status and an honest note that smart wake works while the app is active.
 - Automatically starts simulation on mount.
 - Uses keep-awake while the foreground session is active.
 - Navigates to `AlarmRingingScreen` when the engine first returns `shouldTrigger: true`.
@@ -170,8 +192,10 @@ The simulation is intentionally simple and replaceable. It should not be treated
 `AlarmRingingScreen`:
 - Uses `SafeAreaView` and `ScrollView`.
 - Starts foreground-only audio with `expo-audio` and vibration when ringing.
+- Uses local `assets/audio/alarm-sound.mp3` for the foreground alarm sound.
 - Shows trigger time, reason, wake mode, selected wake settings, Stop, and a clearly labeled demo snooze action.
 - Stops audio/vibration on Stop, Snooze, unmount, and leaving the screen.
+- Defensively cancels any remaining fallback notification on Stop.
 - Uses `replace` navigation into `ResultScreen` so users do not back-navigate into a ringing screen.
 - Uses keep-awake while the foreground ringing screen is active.
 - Clearly states that this is a foreground prototype alarm and does not provide background alarm support.
@@ -198,4 +222,4 @@ Storage behavior:
 - Falls back safely for missing, malformed, or invalid storage.
 - Keeps recent summaries newest-first and capped at 5.
 - Does not persist full wake score arrays.
-
+- Does not persist scheduled notification identifiers.

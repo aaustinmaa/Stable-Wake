@@ -1,11 +1,10 @@
 # NEXT_MILESTONE_PLAN.md
 
-## Milestone 7
-Milestone 7 is pending.
+## Milestone 8
+Milestone 8 is pending.
 
-The likely next direction is local notification fallback for the foreground prototype.
+The likely next direction is "Android-first dev build and alarm reliability spike."
 
-The goal should be to improve resilience when the app is not perfectly foregrounded, while staying honest about platform limits and avoiding a full background alarm system unless explicitly scoped.
+The exact Milestone 8 implementation spec will be provided by the user in the next Codex thread.
 
-Do not make detailed architecture or implementation decisions in this file. The exact Milestone 7 implementation spec should be provided before implementation.
-
+Do not make detailed architecture or implementation decisions in this file.

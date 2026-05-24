@@ -1,7 +1,7 @@
 # PROJECT_STATUS.md
 
 ## Current State
-StableWake is a local-first Expo React Native prototype with milestones 1, 2, 3, 4, 4.5, 5, and 6 completed.
+StableWake is a local-first Expo React Native prototype with milestones 1, 2, 3, 4, 4.5, 5, 6, 7, and 7.1 completed.
 
 The app currently supports:
 - Alarm settings with latest wake time, wake window, and wake mode.
@@ -9,12 +9,15 @@ The app currently supports:
 - A small recent simulated session history saved locally.
 - A simulated sleep session that starts automatically after entering the session screen.
 - A deterministic wake engine that evaluates wakeability, stability, timing pressure, stable wake zones, drop protection, and latest-time fallback.
+- A foreground-only simulation clock that advances only while the app is active and pauses while inactive/backgrounded.
+- A latest-wake-time local notification fallback scheduled from real device wall-clock time when a session starts.
 - Automatic navigation to a foreground alarm ringing screen when the simulated engine first decides the alarm should trigger.
+- Cancellation of the scheduled fallback notification when the foreground engine triggers or the session is stopped.
 - A foreground alarm experience with local audio playback, vibration, demo snooze, stop action, and safe navigation into results.
 - A result summary with wake mode, latest wake time, wake window, reason code, explanation items, and a simple wakeability timeline.
 - A clear saved data action for local settings and recent summaries.
 
-The app remains prototype-only. It does not use real sensors, notifications, background execution, backend services, auth, ML, wearables, or medical sleep-stage claims.
+The app remains prototype-only. It does not use real sensors, background wake-engine execution, background tasks, push notifications, backend services, auth, ML, wearables, cloud sync, or medical sleep-stage claims.
 
 ## Current Tech Stack
 - Expo SDK 54.
@@ -25,6 +28,7 @@ The app remains prototype-only. It does not use real sensors, notifications, bac
 - AsyncStorage via `@react-native-async-storage/async-storage`.
 - Foreground audio via `expo-audio`.
 - Foreground keep-awake via `expo-keep-awake`.
+- Local scheduled notifications via `expo-notifications`.
 - Jest with `jest-expo`.
 - React Native Testing Library.
 
@@ -43,8 +47,9 @@ Current test coverage includes:
 - Alarm settings local storage.
 - Settings restore and clear local data UI behavior.
 - Settings to session flow.
-- Simulation stream behavior.
+- Simulation stream behavior, including AppState pause/resume.
 - Wake engine behavior.
+- Notification fallback scheduling, permission denial, cancellation, and next-clock-time calculation.
 - Result screen rendering.
 - Result summary local storage.
 - Session to alarm ringing to result navigation.
@@ -58,11 +63,15 @@ Current test coverage includes:
 - Milestone 4.5: UI cleanup, scroll fixes, and alarm-clock-style time picker.
 - Milestone 5: AsyncStorage persistence for settings and recent result summaries.
 - Milestone 6: foreground alarm ringing experience with sound, vibration, snooze, keep-awake, and result handoff.
+- Milestone 7: latest-wake-time local notification fallback.
+- Milestone 7.1: pause accelerated simulation while app is inactive/backgrounded.
 
 ## Known Limitations
-- Simulation runs only in foreground.
+- Smart wake detection and the wake engine run only while the app is active in the foreground.
+- The local notification fallback is only a latest-time reminder; it does not perform background smart wake detection.
+- Notification timing and presentation remain subject to mobile OS behavior and Expo Go/development build limitations.
 - Foreground alarm audio and vibration require the app to stay open and active.
-- No notification, system-level alarm, or background execution.
+- No system-level exact alarm implementation yet.
 - No real device sensors.
 - No wearable integration.
 - No backend, auth, cloud sync, or multi-device support.
@@ -77,8 +86,10 @@ Do not add these without an explicit new milestone or product decision:
 - Subscriptions or billing.
 - Wearable integrations.
 - Real sensor integration.
-- Notifications or system-level alarm behavior.
-- Background alarm execution.
+- Background wake-engine execution.
+- Background tasks.
+- Push notifications.
+- System-level exact alarm behavior.
 - Medical sleep-stage claims.
 - ML or personalization pipelines.
 - Heavy chart or UI libraries.
@@ -88,8 +99,9 @@ Do not add these without an explicit new milestone or product decision:
 - `WakeMode` values: keep `"fast" | "balanced" | "comfort"`.
 - `ClockTime` model: do not convert to Date or DateTime.
 - Wake engine purity: keep engine logic UI-independent and deterministic.
-- Simulation purpose: keep it replaceable and deterministic.
+- Simulation sample pattern: keep it deterministic and replaceable.
+- Simulation timing: accelerated simulated time should advance only while AppState is active; notification fallback should stay based on real wall-clock time.
+- Notification service boundary: keep `expo-notifications` calls isolated under `src/services/notifications`.
 - Persistence boundaries: keep AsyncStorage adapters isolated under `src/data/storage`.
 - Stored result history: keep it lightweight unless explicitly requested.
-- Product language: use "wakeability", "stable wake zone", "timing pressure", and "phone-based best effort"; avoid medical claims.
-
+- Product language: use "wakeability", "stable wake zone", "timing pressure", "latest-time fallback", and "phone-based best effort"; avoid medical claims.
