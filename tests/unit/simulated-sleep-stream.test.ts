@@ -1,4 +1,7 @@
+import { AppState } from "react-native";
+
 import {
+  createSimulatedSleepStream,
   createSimulatedSessionPlan,
   createSimulatedSleepSample,
   isWakeWindowActive
@@ -14,6 +17,12 @@ const settings: AlarmSettings = {
 };
 
 describe("simulated sleep stream", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    setAppState("active");
+  });
+
   it("creates a deterministic plan around the selected wake window", () => {
     expect(createSimulatedSessionPlan(settings)).toEqual({
       startClockTime: { hour: 6, minute: 20 },
@@ -65,4 +74,118 @@ describe("simulated sleep stream", () => {
     expect(trigger?.decision.reasonCode).toBe("stable_zone");
     expect(trigger?.score?.timestampMs).toBeLessThan(latestWakeTimeMs);
   });
+
+  it("increases simulated elapsed time while AppState is active", () => {
+    const { emittedMinutes, startStream } = createTestStream();
+
+    startStream();
+
+    expect(emittedMinutes).toEqual([0]);
+
+    jest.advanceTimersByTime(3000);
+
+    expect(emittedMinutes).toEqual([0, 1, 2, 3]);
+  });
+
+  it("does not increase simulated elapsed time while AppState is inactive", () => {
+    const { emittedMinutes, emitAppState, startStream } = createTestStream();
+
+    startStream();
+
+    jest.advanceTimersByTime(2000);
+    emitAppState("background");
+    jest.advanceTimersByTime(30000);
+
+    expect(emittedMinutes).toEqual([0, 1, 2]);
+  });
+
+  it("resumes simulated elapsed time from the previous active duration", () => {
+    const { emittedMinutes, emitAppState, startStream } = createTestStream();
+
+    startStream();
+
+    jest.advanceTimersByTime(2000);
+    emitAppState("background");
+    jest.advanceTimersByTime(30000);
+    emitAppState("active");
+    jest.advanceTimersByTime(2000);
+
+    expect(emittedMinutes).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("does not force latest fallback from background wall-clock time", () => {
+    const shortWindowSettings: AlarmSettings = {
+      latestWakeTime: { hour: 7, minute: 0 },
+      wakeWindowMinutes: 15,
+      wakeMode: "balanced"
+    };
+    const { emittedMinutes, emitAppState, startStream } = createTestStream(shortWindowSettings);
+
+    startStream();
+
+    jest.advanceTimersByTime(2000);
+    emitAppState("background");
+    jest.advanceTimersByTime(120000);
+
+    const wakeWindowStartMs = 10 * MS_PER_MINUTE;
+    const latestWakeTimeMs = wakeWindowStartMs + shortWindowSettings.wakeWindowMinutes * MS_PER_MINUTE;
+    const samples = emittedMinutes.map(createSimulatedSleepSample);
+    const result = evaluateWakeEngine({
+      samples,
+      currentTimeMs: samples[samples.length - 1].timestampMs,
+      wakeWindowStartMs,
+      latestWakeTimeMs,
+      wakeMode: shortWindowSettings.wakeMode
+    });
+
+    expect(emittedMinutes).toEqual([0, 1, 2]);
+    expect(result.decision.reasonCode).not.toBe("latest_fallback");
+  });
 });
+
+type AppStateListener = (state: "active" | "background" | "inactive") => void;
+
+function createTestStream(testSettings: AlarmSettings = settings) {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date(2026, 4, 22, 22, 0, 0));
+  setAppState("active");
+
+  const emittedMinutes: number[] = [];
+  let appStateListener: AppStateListener | null = null;
+  const remove = jest.fn();
+
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_type, listener) => {
+    appStateListener = listener as AppStateListener;
+
+    return { remove };
+  });
+
+  const stream = createSimulatedSleepStream({
+    settings: testSettings,
+    onSample: (sample) => {
+      emittedMinutes.push(getSampleMinute(sample.timestampMs));
+    },
+    onComplete: jest.fn()
+  });
+
+  return {
+    emittedMinutes,
+    emitAppState: (state: "active" | "background" | "inactive") => {
+      setAppState(state);
+      appStateListener?.(state);
+    },
+    startStream: stream.start,
+    stopStream: stream.stop
+  };
+}
+
+function getSampleMinute(timestampMs: number) {
+  return Math.floor(timestampMs / MS_PER_MINUTE);
+}
+
+function setAppState(state: "active" | "background" | "inactive") {
+  Object.defineProperty(AppState, "currentState", {
+    configurable: true,
+    get: () => state
+  });
+}

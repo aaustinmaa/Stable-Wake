@@ -1,3 +1,5 @@
+import { AppState, type AppStateStatus } from "react-native";
+
 import type { AlarmSettings } from "../../domain/models/AlarmSettings";
 import type { ClockTime } from "../../domain/models/ClockTime";
 import type { SleepSample } from "../../domain/models/SleepSample";
@@ -77,11 +79,13 @@ export function createSimulatedSleepStream({
 }: CreateSimulatedSleepStreamOptions) {
   const plan = createSimulatedSessionPlan(settings);
   let intervalId: ReturnType<typeof setInterval> | null = null;
-  let startRealTimeMs = 0;
+  let appStateSubscription: { remove: () => void } | null = null;
+  let accumulatedActiveMs = 0;
+  let activeSegmentStartedAtMs: number | null = null;
   let lastEmittedMinute = -1;
 
   const emitNextSample = () => {
-    const elapsedRealMs = Date.now() - startRealTimeMs;
+    const elapsedRealMs = getActiveElapsedRealMs(accumulatedActiveMs, activeSegmentStartedAtMs);
     const elapsedMinute = Math.floor((elapsedRealMs * SIMULATED_MS_PER_REAL_MS) / MS_PER_MINUTE);
 
     if (elapsedMinute === lastEmittedMinute) {
@@ -102,8 +106,10 @@ export function createSimulatedSleepStream({
       return;
     }
 
-    startRealTimeMs = Date.now();
+    accumulatedActiveMs = 0;
+    activeSegmentStartedAtMs = isActiveAppState(AppState.currentState) ? Date.now() : null;
     lastEmittedMinute = -1;
+    appStateSubscription = AppState.addEventListener("change", handleAppStateChange);
     intervalId = setInterval(emitNextSample, intervalMs);
     emitNextSample();
   };
@@ -115,6 +121,27 @@ export function createSimulatedSleepStream({
 
     clearInterval(intervalId);
     intervalId = null;
+    appStateSubscription?.remove();
+    appStateSubscription = null;
+    accumulatedActiveMs = 0;
+    activeSegmentStartedAtMs = null;
+  };
+
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    const now = Date.now();
+
+    if (isActiveAppState(nextAppState)) {
+      if (activeSegmentStartedAtMs === null) {
+        activeSegmentStartedAtMs = now;
+      }
+
+      return;
+    }
+
+    if (activeSegmentStartedAtMs !== null) {
+      accumulatedActiveMs += now - activeSegmentStartedAtMs;
+      activeSegmentStartedAtMs = null;
+    }
   };
 
   return {
@@ -122,4 +149,16 @@ export function createSimulatedSleepStream({
     start,
     stop
   };
+}
+
+function getActiveElapsedRealMs(accumulatedActiveMs: number, activeSegmentStartedAtMs: number | null) {
+  if (activeSegmentStartedAtMs === null) {
+    return accumulatedActiveMs;
+  }
+
+  return accumulatedActiveMs + Date.now() - activeSegmentStartedAtMs;
+}
+
+function isActiveAppState(appState: AppStateStatus) {
+  return appState !== "background" && appState !== "inactive";
 }
